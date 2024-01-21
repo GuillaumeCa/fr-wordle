@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { WORDS } from "./words";
 import "./styles.css";
+import { WORDS } from "./words";
 
 const startDate = new Date(2022, 0, 1, 0, 0, 0, 0);
 
@@ -105,7 +105,7 @@ function Cell({ letter, locked, index, color }) {
         className="cell"
         style={{
           border: letter === "" ? "2px solid " + GREY : "2px solid #888",
-          backgroundColor: null
+          backgroundColor: null,
         }}
       >
         {letter}
@@ -114,7 +114,7 @@ function Cell({ letter, locked, index, color }) {
         className="cell cell-back"
         style={{
           border: null,
-          backgroundColor: color
+          backgroundColor: color,
         }}
       >
         {letter}
@@ -206,7 +206,7 @@ function Keyboard({ onKey, getKeyColor }) {
   );
 }
 
-function Modal({ win }) {
+function Modal({ win, secret }) {
   const [remainDate, setRemainDate] = useState("00:00:00");
 
   function computeRemainDate() {
@@ -234,14 +234,15 @@ function Modal({ win }) {
 
   let msg = (
     <h2>
-      Bravo ! <br /> Vous avez gagné 🥳
+      Bravo ! <br /> Vous avez gagné 🥳 Le mot était bien {secret}
     </h2>
   );
 
   if (!win) {
     msg = (
       <h2>
-        Perdu ! <br /> Tentez votre chance la prochaine fois 😕
+        Perdu ! <br /> Tentez votre chance la prochaine fois 😕 Le mot était{" "}
+        {secret}
       </h2>
     );
   }
@@ -297,13 +298,15 @@ export default function App() {
 
   // save game state
   useEffect(() => {
-    saveState({
-      attempts: attempts.map((attempt) => {
-        return attempt.length === 5 && isInDic(attempt) ? attempt : "";
-      }),
-      currentAttempt
-    });
-  }, [attempts, currentAttempt]);
+    if (!restoring) {
+      saveState({
+        attempts: attempts.map((attempt) => {
+          return attempt.length === 5 && isInDic(attempt) ? attempt : "";
+        }),
+        currentAttempt,
+      });
+    }
+  }, [restoring, attempts, currentAttempt]);
 
   // handle inputs
   useEffect(() => {
@@ -379,11 +382,22 @@ export default function App() {
   function getLetterColor(word, letterIdx) {
     if (letterIdx !== -1) {
       const isInWord = secret.indexOf(word[letterIdx]) !== -1;
+
+      // check if all letters have been correctly placed
+      const allFound =
+        secret
+          .split("")
+          .filter(
+            (letter, i) =>
+              letterIdx !== i &&
+              letter !== word[i] &&
+              letter === word[letterIdx]
+          ).length === 0;
       const isAtLocation = secret[letterIdx] === word[letterIdx];
 
       if (isAtLocation) {
         return GREEN;
-      } else if (isInWord) {
+      } else if (!allFound && isInWord) {
         return YELLOW;
       } else {
         return GREY;
@@ -410,8 +424,8 @@ export default function App() {
 
     const attemptsToCheck = attempts.slice(0, currentAttempt);
     let color = null;
-    attemptsToCheck.forEach((at) => {
-      const newColor = getLetterColor(at, at.indexOf(key));
+    attemptsToCheck.forEach((word) => {
+      const newColor = getLetterColor(word, word.indexOf(key));
       if (newColor === null) {
         return;
       }
@@ -435,7 +449,7 @@ export default function App() {
       <h1>LE MOT</h1>
       <hr />
       {(hasWon || hasLost) && !revealing && !restoring && (
-        <Modal win={hasWon} />
+        <Modal win={hasWon} secret={secret} />
       )}
       <Board
         attempts={attempts}
